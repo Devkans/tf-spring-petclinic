@@ -1,0 +1,147 @@
+name: Terraform CI/CD with Manual Controls
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'environments/dev/**'
+      - 'modules/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'environments/dev/**'
+      - 'modules/**'
+  workflow_dispatch:  # allow manual
+    inputs:
+      environment:
+        description: 'Environment to target'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - prod
+      action:
+        description: 'Terraform action to perform'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+        - plan
+        - apply
+        - destroy
+
+env:
+  TF_WORKING_DIR: './environments/dev'
+  TF_VARS_FILE: 'terraform.tfvars'
+
+jobs:
+  terraform:
+    name: 'Terraform (${{ github.event.inputs.action || 'plan' }})'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.5.0
+    
+    - name: Terraform Format
+      id: fmt
+      run: terraform fmt -check -recursive
+      working-directory: ${{ env.TF_WORKING_DIR }}
+    
+    - name: Terraform Init
+      id: init
+      run: terraform init
+      working-directory: ${{ env.TF_WORKING_DIR }}
+    
+    - name: Terraform Validate
+      id: validate
+      run: terraform validate -no-color
+      working-directory: ${{ env.TF_WORKING_DIR }}
+    
+    - name: Generate Plan File
+      id: plan
+      if: github.event_name == 'pull_request' || github.event.inputs.action == 'plan'
+      run: |
+        terraform plan -no-color -var-file="${{ env.TF_VARS_FILE }}" -out=tfplan
+        echo "plan_generated=true" >> $GITHUB_OUTPUT
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      env:
+        GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+        TF_VAR_postgres_user: ${{ secrets.POSTGRES_USER }}
+        TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+        TF_VAR_postgres_db: ${{ secrets.POSTGRES_DB }}
+    
+    - name: Upload Plan Artifact
+      uses: actions/upload-artifact@v3
+      if: steps.plan.outputs.plan_generated == 'true'
+      with:
+        name: tfplan-${{ github.sha }}
+        path: ${{ env.TF_WORKING_DIR }}/tfplan
+    
+    # Manual Approval for Apply/Destroy
+    - name: Wait for Apply Approval
+      if: github.event.inputs.action == 'apply' || github.event.inputs.action == 'destroy'
+      uses: trstringer/manual-approval@v1
+      with:
+        secret: ${{ github.token }}
+        approvers: ${{ github.actor }}  
+        minimum-approvals: 1
+        issue-title: "Approval required for Terraform ${{ github.event.inputs.action }}"
+        issue-body: |
+          **Terraform Action:** ${{ github.event.inputs.action }}
+          **Environment:** ${{ github.event.inputs.environment || 'dev' }}
+          **Triggered by:** @${{ github.actor }}
+          
+          **Resources to be affected:**
+          ```
+          See plan output below
+          ```
+          
+          **Approve this deployment by commenting:**
+          `/approve`
+          
+          **Reject this deployment by commenting:**
+          `/reject`
+    
+    - name: Terraform Apply
+      if: github.event.inputs.action == 'apply' && github.event_name == 'workflow_dispatch'
+      run: |
+        # Download plan if exists
+        if [ -f "${{ env.TF_WORKING_DIR }}/tfplan" ]; then
+          echo "Using existing plan file"
+        else
+          terraform plan -no-color -var-file="${{ env.TF_VARS_FILE }}" -out=tfplan
+        fi
+        terraform apply -auto-approve tfplan
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      env:
+        GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+        TF_VAR_postgres_user: ${{ secrets.POSTGRES_USER }}
+        TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+        TF_VAR_postgres_db: ${{ secrets.POSTGRES_DB }}
+    
+    - name: Terraform Destroy
+      if: github.event.inputs.action == 'destroy' && github.event_name == 'workflow_dispatch'
+      run: |
+        echo "⚠️  WARNING: DESTROYING ALL RESOURCES ⚠️"
+        terraform destroy -auto-approve -var-file="${{ env.TF_VARS_FILE }}"
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      env:
+        GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+        TF_VAR_postgres_user: ${{ secrets.POSTGRES_USER }}
+        TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+        TF_VAR_postgres_db: ${{ secrets.POSTGRES_DB }}
+    
+    - name: Output Destroy Confirmation
+      if: github.event.inputs.action == 'destroy' && github.event_name == 'workflow_dispatch'
+      run: |
+        echo "✅ All resources have been destroyed"
+        echo "::warning::All infrastructure resources have been destroyed!"
+      working-directory: ${{ env.TF_WORKING_DIR }}
