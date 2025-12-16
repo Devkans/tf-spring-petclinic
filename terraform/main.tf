@@ -126,3 +126,27 @@ output "application_url" {
 output "database_private_ip" {
   value = google_sql_database_instance.postgres.private_ip_address
 }
+
+# TEST RESOURCE - Cloud Storage bucket for logs
+resource "google_storage_bucket" "petclinic_logs" {
+  name          = "petclinic-logs-${var.project_id}"  
+  location      = var.region
+  force_destroy = true  
+  
+  uniform_bucket_level_access = true
+  
+  lifecycle_rule {
+    condition {
+      age = 15
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  labels = {
+    environment = "dev"
+    purpose     = "logs"
+    terraform   = "true"
+  }
+}
