@@ -31,32 +31,30 @@ jobs:
 
       - name: Configure GCP credentials
         run: |
-          echo "${{ secrets.TF_WITH_GCP_KEY }}" > gcp-key.json
+          echo '${{ secrets.TF_WITH_GCP_KEY }}' > gcp-key.json
           export GOOGLE_APPLICATION_CREDENTIALS="$PWD/gcp-key.json"
         shell: bash
 
       - name: Terraform Init
-        run: terraform init
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.TF_WITH_GCP_KEY }}
+        run: terraform init -backend-config="credentials=gcp-key.json"
 
       - name: Terraform Plan
         if: ${{ github.event.inputs.tf_action == 'plan' || github.event_name == 'push' }}
         run: terraform plan -input=false
         env:
           TF_VAR_db_password: ${{ secrets.POSTGRES_PASSWORD }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.TF_WITH_GCP_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: $PWD/gcp-key.json
 
       - name: Terraform Apply
         if: ${{ github.event.inputs.tf_action == 'apply' }}
         run: terraform apply -auto-approve
         env:
           TF_VAR_db_password: ${{ secrets.POSTGRES_PASSWORD }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.TF_WITH_GCP_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: $PWD/gcp-key.json
 
       - name: Terraform Destroy
         if: ${{ github.event.inputs.tf_action == 'destroy' }}
         run: terraform destroy -auto-approve
         env:
           TF_VAR_db_password: ${{ secrets.POSTGRES_PASSWORD }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.TF_WITH_GCP_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: $PWD/gcp-key.json
