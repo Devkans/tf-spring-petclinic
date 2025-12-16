@@ -36,7 +36,14 @@ jobs:
         shell: bash
 
       - name: Create terraform.tfvars from secret
-        run: echo '${{ secrets.TFVARS_FILE }}'' > terraform.tfvars
+        run: |
+          # Write the secret to file
+          echo "${{ secrets.TFVARS_FILE }}" > terraform.tfvars
+          # DIAGNOSTIC: Show what was actually written (first 200 chars)
+          echo "=== File content (first 200 chars) ==="
+          head -c 200 terraform.tfvars
+          echo -e "\n=== File size ==="
+          wc -c terraform.tfvars
         shell: bash
 
       - name: Terraform Init
