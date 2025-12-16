@@ -93,7 +93,7 @@ resource "google_compute_instance" "vm" {
 
   # Using your terraform-sa service account
   service_account {
-    email  = "petclinic-vm-sa@gd-gcp-internship-devops.iam.gserviceaccount.com"
+    email  = "terraform-ci@gd-gcp-internship-devops.iam.gserviceaccount.com"
     scopes = ["cloud-platform"]
   }
 
