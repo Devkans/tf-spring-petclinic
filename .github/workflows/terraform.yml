@@ -62,3 +62,8 @@ jobs:
         env:
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
           GOOGLE_APPLICATION_CREDENTIALS: $PWD/gcp-key.json
+
+      - name: Cleanup sensitive files
+        if: always()
+        run: |
+          rm -f gcp-key.json terraform.tfvars
