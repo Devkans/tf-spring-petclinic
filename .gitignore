@@ -4,3 +4,10 @@
 terraform.tfvars
 .env
 .DS_Store
+*.key.json
+*.pem
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+terraform/terraform.tfvars
+terraform/terraform-sa-key.json

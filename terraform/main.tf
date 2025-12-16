@@ -8,71 +8,121 @@ terraform {
     }
   }
 
+  # Backend configuration
   backend "gcs" {
-    bucket = "gd-gcp-internship-devops-tfstate"
-    prefix = "terraform/state/petclinic"
+    bucket = "spring-petclinic-tfe-ar"
+    prefix = "terraform/state"
   }
 }
 
+# Provider configuration
 provider "google" {
   project = var.project_id
   region  = var.region
   zone    = var.zone
+  # Authentication via GOOGLE_CREDENTIALS env var
 }
 
-# Import modules
-module "network" {
-  source = "../../modules/network"
+# NETWORK
+resource "google_compute_network" "vpc" {
+  name                    = var.network
+  auto_create_subnetworks = false
+}
+
+resource "google_compute_subnetwork" "subnet" {
+  name          = var.subnet
+  ip_cidr_range = "10.0.1.0/24"
+  region        = var.region
+  network       = google_compute_network.vpc.id
+}
+
+# DATABASE (Cloud SQL PostgreSQL)
+resource "google_sql_database_instance" "postgres" {
+  name             = "petclinic-db"
+  database_version = "POSTGRES_15"
+  region           = var.region
   
-  project_id = var.project_id
-  region     = var.region
-  network    = var.network
-  subnet     = var.subnet
+  settings {
+    tier = "db-f1-micro"
+    
+    ip_configuration {
+      ipv4_enabled    = false
+      private_network = google_compute_network.vpc.id
+    }
+  }
+
+  deletion_protection = false # Set to true for production
 }
 
-module "database" {
-  source = "../../modules/database"
-  
-  project_id          = var.project_id
-  region              = var.region
-  network_id          = module.network.vpc_id
-  db_name             = "petclinic-db"
-  db_user             = var.postgres_user
-  db_password         = var.postgres_password
-  db_database         = var.postgres_db
+resource "google_sql_database" "database" {
+  name     = var.postgres_db
+  instance = google_sql_database_instance.postgres.name
 }
 
-module "compute" {
-  source = "../../modules/compute"
-  
-  project_id     = var.project_id
-  region         = var.region
-  zone           = var.zone
-  network        = var.network
-  subnet         = var.subnet
-  vm_name        = var.vm
-  external_ip    = var.ip
-  service_account_email = var.service_account
+resource "google_sql_user" "user" {
+  name     = var.postgres_user
+  instance = google_sql_database_instance.postgres.name
+  password = var.postgres_password
 }
 
-module "storage" {
-  source = "../../modules/storage"
-  
-  project_id = var.project_id
-  region     = var.region
-  repo_name  = var.repo
+# COMPUTE ENGINE VM
+resource "google_compute_address" "static_ip" {
+  name = var.ip
 }
 
-# Outputs
+resource "google_compute_instance" "vm" {
+  name         = var.vm
+  machine_type = "e2-medium"
+  zone         = var.zone
+
+  tags = ["petclinic-vm"]
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12"
+      size  = 20
+    }
+  }
+
+  network_interface {
+    network    = google_compute_network.vpc.id
+    subnetwork = google_compute_subnetwork.subnet.id
+
+    access_config {
+      nat_ip = google_compute_address.static_ip.address
+    }
+  }
+
+  # 🔑 Using your terraform-sa service account
+  service_account {
+    email  = "terraform-sa@gd-gcp-internship-devops.iam.gserviceaccount.com"
+    scopes = ["cloud-platform"]
+  }
+
+  metadata_startup_script = <<-EOF
+    #!/bin/bash
+    # Docker installation script
+    apt-get update
+    apt-get install -y docker.io docker-compose
+    systemctl start docker
+    systemctl enable docker
+    usermod -aG docker $(whoami)
+    mkdir -p /opt/petclinic
+  EOF
+}
+
+# ARTIFACT REGISTRY
+resource "google_artifact_registry_repository" "repo" {
+  location      = var.region
+  repository_id = var.repo
+  format        = "DOCKER"
+}
+
+# OUTPUTS
 output "application_url" {
-  value = "http://${module.compute.vm_external_ip}:${var.port}"
+  value = "http://${google_compute_address.static_ip.address}:${var.port}"
 }
 
-output "database_connection" {
-  value = module.database.connection_name
-  sensitive = true
-}
-
-output "artifact_registry_url" {
-  value = module.storage.artifact_registry_url
+output "database_private_ip" {
+  value = google_sql_database_instance.postgres.private_ip_address
 }

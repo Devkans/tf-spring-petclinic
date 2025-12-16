@@ -3,19 +3,16 @@ variable "project_id" {
   type        = string
 }
 
-variable "service_account" {
-  description = "Service account email for VM"
-  type        = string
-}
-
 variable "region" {
   description = "GCP Region"
   type        = string
+  default     = "europe-central2"
 }
 
 variable "zone" {
   description = "GCP Zone"
   type        = string
+  default     = "europe-central2-a"
 }
 
 variable "network" {
@@ -54,7 +51,6 @@ variable "repo" {
   default     = "arpetclinic-repo"
 }
 
-# Database variables
 variable "postgres_user" {
   description = "PostgreSQL username"
   type        = string
@@ -70,4 +66,5 @@ variable "postgres_password" {
 variable "postgres_db" {
   description = "PostgreSQL database name"
   type        = string
+  default     = "petclinic"
 }
