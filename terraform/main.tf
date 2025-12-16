@@ -8,7 +8,7 @@ terraform {
     }
   }
 
-  # Backend configuration
+  # Backend 
   backend "gcs" {
     bucket = "spring-petclinic-tfe-ar"
     prefix = "terraform/state"
@@ -20,7 +20,6 @@ provider "google" {
   project = var.project_id
   region  = var.region
   zone    = var.zone
-  # Authentication via GOOGLE_CREDENTIALS env var
 }
 
 # NETWORK
@@ -36,7 +35,7 @@ resource "google_compute_subnetwork" "subnet" {
   network       = google_compute_network.vpc.id
 }
 
-# DATABASE (Cloud SQL PostgreSQL)
+# DATABASE 
 resource "google_sql_database_instance" "postgres" {
   name             = "petclinic-db"
   database_version = "POSTGRES_15"
@@ -93,9 +92,9 @@ resource "google_compute_instance" "vm" {
     }
   }
 
-  # 🔑 Using your terraform-sa service account
+  # Using your terraform-sa service account
   service_account {
-    email  = "terraform-sa@gd-gcp-internship-devops.iam.gserviceaccount.com"
+    email  = "petclinic-vm-sa@gd-gcp-internship-devops.iam.gserviceaccount.com"
     scopes = ["cloud-platform"]
   }
 
@@ -126,3 +125,5 @@ output "application_url" {
 output "database_private_ip" {
   value = google_sql_database_instance.postgres.private_ip_address
 }
+
+
