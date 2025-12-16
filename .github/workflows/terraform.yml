@@ -36,7 +36,9 @@ jobs:
         shell: bash
 
       - name: Terraform Init
-        run: terraform init -backend-config="credentials=$GOOGLE_APPLICATION_CREDENTIALS"
+        run: terraform init
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.TF_WITH_GCP_KEY }}
 
       - name: Terraform Plan
         if: ${{ github.event.inputs.tf_action == 'plan' || github.event_name == 'push' }}
