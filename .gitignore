@@ -1,7 +1,6 @@
 .terraform/
 *.tfstate
 *.tfstate.*
-terraform.tfvars
 .env
 .DS_Store
 *.key.json
@@ -9,5 +8,4 @@ terraform.tfvars
 **/.terraform/
 **/*.tfstate
 **/*.tfstate.*
-terraform/terraform.tfvars
 terraform/terraform-sa-key.json

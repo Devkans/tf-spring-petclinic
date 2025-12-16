@@ -1,5 +1,4 @@
 name: Terraform CI/CD
-
 on:
   push:
     branches: [main]
@@ -26,18 +25,10 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
 
       - name: Configure GCP credentials
         run: |
           echo '${{ secrets.TF_WITH_GCP_KEY }}' > gcp-key.json
-          export GOOGLE_APPLICATION_CREDENTIALS="$PWD/gcp-key.json"
-        shell: bash
-
-      - name: Create terraform.tfvars from secret
-        run: |
-          echo "${{ secrets.TFVARS_FILE }}" > terraform.tfvars
         shell: bash
 
       - name: Terraform Init
@@ -45,26 +36,25 @@ jobs:
 
       - name: Terraform Plan
         if: ${{ github.event.inputs.tf_action == 'plan' || github.event_name == 'push' }}
-        run: terraform plan -input=false -var-file="terraform.tfvars"
+        run: terraform plan -var-file="terraform.tfvars"
         env:
+          GOOGLE_APPLICATION_CREDENTIALS: gcp-key.json
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
-          GOOGLE_APPLICATION_CREDENTIALS: $PWD/gcp-key.json
 
       - name: Terraform Apply
         if: ${{ github.event.inputs.tf_action == 'apply' }}
         run: terraform apply -auto-approve -var-file="terraform.tfvars"
         env:
+          GOOGLE_APPLICATION_CREDENTIALS: gcp-key.json
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
-          GOOGLE_APPLICATION_CREDENTIALS: $PWD/gcp-key.json
 
       - name: Terraform Destroy
         if: ${{ github.event.inputs.tf_action == 'destroy' }}
         run: terraform destroy -auto-approve -var-file="terraform.tfvars"
         env:
+          GOOGLE_APPLICATION_CREDENTIALS: gcp-key.json
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
-          GOOGLE_APPLICATION_CREDENTIALS: $PWD/gcp-key.json
 
-      - name: Cleanup sensitive files
+      - name: Cleanup
         if: always()
-        run: |
-          rm -f gcp-key.json terraform.tfvars
+        run: rm -f gcp-key.json
