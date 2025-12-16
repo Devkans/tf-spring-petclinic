@@ -18,40 +18,36 @@ jobs:
     defaults:
       run:
         working-directory: ./terraform
-    
+
     steps:
     - name: Checkout
       uses: actions/checkout@v3
-    
+
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
-    
-    - name: Setup GCP Auth
-      run: |
-        echo '${{ secrets.TF_WITH_GCP_KEY }}' > ./terraform/petclinic-vm-sa-key.json
-      
+
     - name: Terraform Init
       run: terraform init
       env:
-        GOOGLE_CREDENTIALS: ./terraform/petclinic-vm-sa-key.json
-    
+        GOOGLE_CREDENTIALS: '${{ secrets.TF_WITH_GCP_KEY }}'
+
     - name: Terraform Plan
       if: github.event.inputs.tf_action == 'plan' || github.event_name == 'push'
       run: terraform plan
       env:
-        GOOGLE_CREDENTIALS: ./terraform/petclinic-vm-sa-key.json
+        GOOGLE_CREDENTIALS: '${{ secrets.TF_WITH_GCP_KEY }}'
         TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
-    
+
     - name: Terraform Apply
       if: github.event.inputs.tf_action == 'apply'
       run: terraform apply -auto-approve
       env:
-        GOOGLE_CREDENTIALS: ./terraform/petclinic-vm-sa-key.json
+        GOOGLE_CREDENTIALS: '${{ secrets.TF_WITH_GCP_KEY }}'
         TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
-    
+
     - name: Terraform Destroy
       if: github.event.inputs.tf_action == 'destroy'
       run: terraform destroy -auto-approve
       env:
-        GOOGLE_CREDENTIALS: ./terraform/petclinic-vm-sa-key.json
+        GOOGLE_CREDENTIALS: '${{ secrets.TF_WITH_GCP_KEY }}'
         TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}

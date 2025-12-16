@@ -8,19 +8,18 @@ terraform {
     }
   }
 
-  # Backend 
   backend "gcs" {
     bucket = "spring-petclinic-tfe-ar"
     prefix = "terraform/state"
   }
 }
 
-# Provider configuration
 provider "google" {
   project = var.project_id
   region  = var.region
   zone    = var.zone
 }
+
 
 # NETWORK
 resource "google_compute_network" "vpc" {
