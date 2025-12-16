@@ -36,7 +36,7 @@ jobs:
         shell: bash
 
       - name: Create terraform.tfvars from secret
-        run: echo "${{ secrets.TFVARS_FILE }}" > terraform.tfvars
+        run: echo '${{ secrets.TFVARS_FILE }}'' > terraform.tfvars
         shell: bash
 
       - name: Terraform Init
